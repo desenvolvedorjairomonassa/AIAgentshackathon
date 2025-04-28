@@ -1,0 +1,7 @@
+chainlit
+semantic-kernel
+python-dotenv
+openai
+semantic-kernel-connectors-ai-openai
+semantic-kernel-connectors-mcp
+Pillow

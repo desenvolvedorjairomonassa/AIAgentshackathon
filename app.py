@@ -2,16 +2,15 @@
 
 import chainlit as cl
 import semantic_kernel as sk
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 import os
 from openai import AsyncOpenAI 
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
 from semantic_kernel.agents import ChatCompletionAgent, ChatHistoryAgentThread 
-from semantic_kernel.connectors.mcp import MCPStdioPlugin
 
 
 # Carrega variáveis de ambiente do .env
-load_dotenv(override=True)
+#load_dotenv(override=True)
 
 AVATAR_IMAGE_PATH = "./public/avatar.png" 
 MOTIVATION_AGENT_NAME = "Agente_Motivacao"
@@ -26,7 +25,8 @@ async def on_chat_start():
     # --- Configuração do Cliente e Serviço (movido de semantickernel_basic.py) ---
     # Configura o cliente AsyncOpenAI para GitHub Models
     chat_client = AsyncOpenAI(
-        api_key=os.environ["GITHUB_TOKEN"],
+        #api_key=os.environ["GITHUB_TOKEN"],
+        api_key=os.environ.get("GITHUB_TOKEN"),
         base_url="https://models.inference.ai.azure.com"
     )
     # Configura o serviço Semantic Kernel OpenAIChatCompletion

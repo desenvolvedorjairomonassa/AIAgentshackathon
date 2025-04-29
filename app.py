@@ -1,158 +1,210 @@
-# autor : Jairo Monassa
+# author: Jairo Monassa
 
 import chainlit as cl
 import semantic_kernel as sk
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 import os
-from openai import AsyncOpenAI 
+from openai import AsyncOpenAI
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
-from semantic_kernel.agents import ChatCompletionAgent, ChatHistoryAgentThread 
+from semantic_kernel.agents import ChatCompletionAgent, ChatHistoryAgentThread
 
+# Load environment variables from .env
+load_dotenv(override=True)
 
-# Carrega variáveis de ambiente do .env
-#load_dotenv(override=True)
-
-AVATAR_IMAGE_PATH = "./public/avatar.png" 
-MOTIVATION_AGENT_NAME = "Agente_Motivacao"
-PLANNING_AGENT_NAME = "Agente_Planejamento"
-MAIN_AGENT_NAME = "Agente_Principal"
-BULLYING_AGENT_NAME = "Agente_Bullying"
-COMMIT_SUICIDE_AGENT_NAME = "Agente_Suicidio"
-BURNOUT_AGENT_NAME = "Agente_Burnout"
+# --- Constants (Translated Names) ---
+AVATAR_IMAGE_PATH = "./public/avatar.png" # Keep path as is
+MOTIVATION_AGENT_NAME = "Motivation_Agent"
+PLANNING_AGENT_NAME = "Planning_Agent"
+MAIN_AGENT_NAME = "Main_Tutor_Agent"
+BULLYING_AGENT_NAME = "Bullying_Support_Agent"
+SELF_HARM_PREVENTION_AGENT_NAME = "Self_Harm_Prevention_Agent"
+BURNOUT_AGENT_NAME = "Burnout_Support_Agent"
+SIMULATION_AGENT_NAME = "Quiz_Simulation_Agent" # Changed to be more specific
+CONFLICTS_AGENT_NAME = "Conflict_Resolution_Agent" # Changed to be more descriptive
+PROGRESS_MONITORING_AGENT_NAME = "Progress_Monitoring_Agent" # Changed name for clarity and consistency
+endpoint = "https://models.github.ai/inference"
+model_name = "gpt-4o-mini"
+token = os.getenv("GITHUB_TOKEN")
 
 @cl.on_chat_start
 async def on_chat_start():
-    # --- Configuração do Cliente e Serviço (movido de semantickernel_basic.py) ---
-    # Configura o cliente AsyncOpenAI para GitHub Models
+    # --- Client and Service Configuration ---
+    # Configure the AsyncOpenAI client for GitHub Models
     chat_client = AsyncOpenAI(
-        #api_key=os.environ["GITHUB_TOKEN"],
-        api_key=os.environ.get("GITHUB_TOKEN"),
+        api_key=token,
         base_url="https://models.inference.ai.azure.com"
     )
-    # Configura o serviço Semantic Kernel OpenAIChatCompletion
+    # Configure the Semantic Kernel OpenAIChatCompletion service
     chat_completion_service = OpenAIChatCompletion(
-        ai_model_id=os.getenv("GITHUB_MODEL", "gpt-4o"),
-        async_client=chat_client # Passa o cliente AsyncOpenAI
+        ai_model_id=model_name,
+        async_client=chat_client # Pass the AsyncOpenAI client
     )
-    # --- Fim da Configuração ---
+    # --- End of Configuration ---
 
-    # Configura o Kernel do Semantic Kernel
+    # Configure the Semantic Kernel
     kernel = sk.Kernel()
-    # Adiciona o serviço de chat ao kernel
-    # É importante adicionar o serviço ao kernel para que o agente possa usá-lo
+    # Add the chat service to the kernel
+    # It's important to add the service to the kernel so the agent can use it
     kernel.add_service(chat_completion_service)
+    # Define the avatar image element
     image = cl.Image(path=AVATAR_IMAGE_PATH, name="avatar", display="inline", size="small")
 
-    agentMotivacao = ChatCompletionAgent(
-        kernel=kernel, # Passa o kernel para o agente
+    # --- Agent Definitions (Translated Instructions) ---
+
+    motivation_agent = ChatCompletionAgent(
+        kernel=kernel, # Pass the kernel to the agent
         name=MOTIVATION_AGENT_NAME,
-        instructions=("seu papel é verificar o nível de motivação do aluno e sugerir um plano motivacional. "
-                     "Você deve fazer perguntas abertas para entender o nível de motivação do aluno e sugerir um plano motivacional. "
-                     )
-    )
-    agentBullying = ChatCompletionAgent(
-        kernel=kernel, # Passa o kernel para o agente
-        name=BULLYING_AGENT_NAME,
-        instructions="seu papel é verificar se o aluno está sendo vítima de bullying e sugerir um plano de ação. "
-    )
-    agentSuicidio = ChatCompletionAgent(
-        kernel=kernel, # Passa o kernel
-        name=COMMIT_SUICIDE_AGENT_NAME,
-        instructions="seu papel com pensamentos suicidas e sugerir um plano de ação." 
-    )
-    agentBurnout = ChatCompletionAgent(
-        kernel=kernel, 
-        name=BURNOUT_AGENT_NAME,
-        instructions=("seu papel e verifica o escotamento do aluno e sugerir um plano de ação."
-                    "Recomendações de pausas e técnicas de relaxamento para evitar burnout.")
-    )
-    agentPlanejamento = ChatCompletionAgent(
-        kernel=kernel, # Passa o kernel para o agente
-        name=PLANNING_AGENT_NAME,
-        instructions="Você é um assistente especialista em planejamento de estudos. Seu objetivo é criar um plano de estudos personalizado e estruturado. "
-                f"**ETAPA 1: Coleta de Informações**\n"
-                "Antes de criar o plano, você DEVE conversar com o usuário para entender:\n"
-                "1. Disponibilidade de estudo: Pergunte quantas horas por semana ou quais dias/horários o usuário pode dedicar aos estudos.\n"
-                "2. Milestone: Pergunte se tem algum prazo para estudo como um exame ou certificado.\n"
-                "3. Crie metas de acordo com os tópicos que vai apreender "
-                "Faça perguntas claras e aguarde as respostas do usuário. Você pode fazer perguntas de acompanhamento se necessário.\n"
-                "3. Mostre ao usuário o resultado final do plano de estudos, incluindo a estrutura e os tópicos abordados.\n"
-                "4. Depois de mostrar o plano de estudos, pergunte se o usuário gostaria de adicionar ou remover algum tópico ou ajustar a carga horária.\n"
-                "**ETAPA 2: Geração do Plano**\n"
-                "SOMENTE APÓS coletar informações suficientes sobre disponibilidade e metas, informe ao usuário que você irá gerar o plano.\n"
-                "Gere o plano no seguinte formato JSON estruturado:\n"
-                "{\n"
-                '  "semana1": {\n'
-                '    "dias1e2": { "topico": "...", "subtopicos": ["...", "..."], "meta": "..." },\n'
-                '    "dia3": { "topico": "...", "subtopicos": ["...", "..."], "meta": "..." }\n'
-                '  },\n'
-                '  "semana2": { ... }\n'
-                "}\n"
-                "Adapte a quantidade de semanas e a distribuição de tópicos com base na disponibilidade e metas informadas pelo usuário.\n"
-                "**ETAPA 3: Salvamento e Confirmação**\n"
-                "Após gerar o objeto JSON do plano, você DEVE OBRIGATORIAMENTE usar a ferramenta 'save_study_plan_to_json' passando o json como argumento para salvar este objeto no arquivo 'plano.json'.\n"
-                "Finalmente, informe ao usuário que o plano foi criado com base nas informações fornecidas e salvo com sucesso."
-        # O 'service' não é mais passado diretamente aqui, pois está no kernel
-    )
-    # Instancia o agente usando o kernel (em vez de passar o 'service' diretamente)
-    # O agente usará o serviço adicionado ao kernel
-    # o agente de simulador quizzes usando edubase -  EduBase - Interact with EduBase, a comprehensive e-learning platform with advanced quizzing, exam management, and content organization capabilities
-    # agente para agendamento dos quizzes
-    # o chat deveria pergunta intrisecamente como o aluno esta sem levantat suspeita (suti) e não esqueça de falar como está se sentido
-    # conflito com os professores outros alunos   
-    # conflito com pais/familiares
-    # acompanha a evolução
-    agent = ChatCompletionAgent(
-        kernel=kernel, # Passa o kernel para o agente
-        service=chat_completion_service, # Passa o serviço de chat ao agente
-        name=MAIN_AGENT_NAME,
-        instructions=("Você é um tutor online que ajuda os alunos a estudar. "
-                      "Procure entender o aluno, perguntando sobre suas dificuldades e objetivos. "
-                      f"Se você perceber que está desmotivado, encaminhe-o para o '{MOTIVATION_AGENT_NAME}'. "
-                      f"Se você perceber que precisa de ajuda para planejar os estudos, encaminhe-o para o '{PLANNING_AGENT_NAME}'. "
-                      f"Se você perceber que está sendo vítima de bullying, encaminhe-o para o '{BULLYING_AGENT_NAME}'. "
-                      f"Se você perceber que o aluno está com pensamentos, sentimentos ou comportamentos suicidas, encaminhe-o para  '{COMMIT_SUICIDE_AGENT_NAME}'. "
-                      f"Se você perceber que o aluno está com esgotamento físico ou mental, encaminhe-o para o '{BURNOUT_AGENT_NAME}'."
-                      ),
-        plugins=[agentMotivacao, agentPlanejamento, agentBullying, agentSuicidio, agentBurnout] # Adiciona os agentes como plugins
+        instructions=(
+            "Your role is to check the student's motivation level and suggest a motivational plan. "
+            "You should ask open-ended questions to understand the student's motivation level and suggest a concise motivational plan."
+        )
     )
 
-    # Inicializa o histórico da conversa (thread) como None
+    bullying_agent = ChatCompletionAgent(
+        kernel=kernel, # Pass the kernel to the agent
+        name=BULLYING_AGENT_NAME,
+        instructions="Your role is to check if the student is a victim of bullying and suggest an action plan."
+    )
+
+    self_harm_prevention_agent = ChatCompletionAgent(
+        kernel=kernel, # Pass the kernel
+        name=SELF_HARM_PREVENTION_AGENT_NAME,
+        instructions="Your role is to support students with suicidal thoughts and suggest an action plan."
+    )
+
+    burnout_agent = ChatCompletionAgent(
+        kernel=kernel,
+        name=BURNOUT_AGENT_NAME,
+        instructions=(
+            "Your role is to check for student burnout and suggest an action plan. "
+            "Recommend breaks and relaxation techniques to prevent burnout."
+        )
+    )
+
+    simulation_agent = ChatCompletionAgent(
+        kernel=kernel, # Pass the kernel to the agent
+        name=SIMULATION_AGENT_NAME,
+        instructions=(
+            "Your role is to create about 5 questions on the study plan topic. "
+            "Create 3 multiple-choice questions and 2 open-ended questions."
+        )
+    )
+
+    conflicts_agent = ChatCompletionAgent(
+        kernel=kernel, # Pass the kernel
+        name=CONFLICTS_AGENT_NAME,
+        instructions=(
+            "Your role is to identify if the student has any personal conflict with the teacher "
+            "or a conflict within the family: "
+            "- Give advice to resolve according to the student's situation."
+        )
+    )
+
+    progress_monitoring_agent = ChatCompletionAgent(
+        kernel=kernel, # Pass the kernel
+        name=PROGRESS_MONITORING_AGENT_NAME,
+        instructions="Your role is to summarize all test simulations and check how many questions were answered correctly and incorrectly."
+    )
+
+    planning_agent = ChatCompletionAgent(
+        kernel=kernel, # Pass the kernel to the agent
+        name=PLANNING_AGENT_NAME,
+        instructions=(
+            "You are an expert study planning assistant. Your goal is to create a personalized and structured study plan.\n"
+            "**STEP 1: Information Gathering**\n"
+            "Before creating the plan, you MUST talk to the user to understand:\n"
+            "1. Study Availability: Ask how many hours per week or which days/times the user can dedicate to studying.\n"
+            "2. Milestone: Ask if there is any deadline for studying, like an exam or certification.\n"
+            "3. Create goals according to the topics to be learned.\n" # Note: Original had '3.' twice, kept structure but might need review
+            "Ask clear questions and wait for the user's answers. You can ask follow-up questions if necessary.\n"
+            "4. Show the user the final study plan, including the structure and topics covered.\n" # Note: Original numbering was off, adjusted here
+            "5. After showing the study plan, ask if the user would like to add or remove any topics or adjust the workload.\n" # Adjusted numbering
+            "**STEP 2: Plan Generation**\n"
+            "ONLY AFTER gathering sufficient information about availability and goals, inform the user that you will generate the plan.\n"
+            "Generate the plan in the following structured JSON format:\n"
+            "{\n"
+            '  "week1": {\n'
+            '    "days1and2": { "topic": "...", "subtopics": ["...", "..."], "goal": "..." },\n' # Changed 'meta' to 'goal' for clarity
+            '    "day3": { "topic": "...", "subtopics": ["...", "..."], "goal": "..." }\n'
+            '  },\n'
+            '  "week2": { ... }\n'
+            "}\n"
+            "Adapt the number of weeks and the distribution of topics based on the availability and goals provided by the user.\n"
+            "**STEP 3: Saving and Confirmation**\n"
+            "After generating the JSON object for the plan, you MUST use the 'save_study_plan_to_json' tool, passing the json as an argument, to save this object to the 'plano.json' file.\n" # IMPORTANT: This tool is not defined in this script. It needs to be added or this instruction removed/modified.
+            "Finally, inform the user that the plan was created based on the provided information and saved successfully."
+        )
+    )
+
+    # --- Main Agent Definition ---
+    main_agent = ChatCompletionAgent(
+        kernel=kernel, # Pass the kernel to the agent
+        # service=chat_completion_service, # Service is already in the kernel, no need to pass again here
+        name=MAIN_AGENT_NAME,
+        instructions=(
+            "You are an online tutor who helps students study. "
+            "Always greet the student, and pay attention to their tone of response to assess how they are feeling. "
+            "After they study a topic and let you know, ask them how they are doing. "
+            "After they take a simulation/quiz, ask them if they are feeling more confident. "
+            "Try to understand the student by asking about their difficulties and goals. "
+            f"If you notice the student is unmotivated, forward them to the '{MOTIVATION_AGENT_NAME}'. "
+            f"If you notice they need help planning their studies, forward them to the '{PLANNING_AGENT_NAME}'. "
+            f"If you suspect the student is a victim of bullying, forward them to the '{BULLYING_AGENT_NAME}'. "
+            f"If you notice the student is having suicidal thoughts, feelings, or behaviors, forward them to the '{SELF_HARM_PREVENTION_AGENT_NAME}'. "
+            f"If you notice the student is experiencing physical or mental exhaustion (burnout), forward them to the '{BURNOUT_AGENT_NAME}'. "
+            f"If the student wants to take a practice exam/quiz on specific topics, forward them to the '{SIMULATION_AGENT_NAME}'. "
+            f"If the student indicates they have a conflict with teachers or family, forward them to the '{CONFLICTS_AGENT_NAME}'. "
+            f"If the student wants to check their progress, forward them to the '{PROGRESS_MONITORING_AGENT_NAME}'."
+        ),
+        plugins=[
+            motivation_agent,
+            planning_agent,
+            bullying_agent,
+            self_harm_prevention_agent,
+            burnout_agent,
+            conflicts_agent,
+            simulation_agent,
+            progress_monitoring_agent
+        ] # Add the agents as plugins using their new variable names
+    )
+
+    # Initialize the conversation history (thread) as None
     thread: ChatHistoryAgentThread = None
-    # Armazena o agente e o thread na sessão do usuário do Chainlit
-    cl.user_session.set("agent", agent)
+    # Store the main agent and thread in the Chainlit user session
+    cl.user_session.set("agent", main_agent) # Store the main_agent
     cl.user_session.set("thread", thread)
 
-    # Mensagem opcional de boas-vindas
-    await cl.Message(content="Tudo bem, vamos estudar o que hoje?",
-                     elements=[image]).send()
-# @cl.step(type="tool")
-# async def tool():
-#     # Fake tool
-#     await cl.sleep(2)
-#     return "Response from the tool!"
+    # Optional welcome message
+    await cl.Message(
+        content="Hello! What would you like to study today?", # Translated welcome message
+        author=MAIN_AGENT_NAME, # Set author for avatar
+        elements=[image] # Include avatar image element
+    ).send()
 
 @cl.on_message
 async def on_message(message: cl.Message):
-    # Recupera o agente e o thread da sessão do usuário
+    # Retrieve the agent and thread from the user session
     agent = cl.user_session.get("agent") # type: ChatCompletionAgent
     thread = cl.user_session.get("thread") # type: ChatHistoryAgentThread
-    # Call the tool
-    #tool_res = await tool()
 
-    # Cria uma mensagem vazia para a resposta do agente (para streaming)
-    answer = cl.Message(content="")
-    await answer.send() # Envia o contêiner da mensagem para a UI
+    # Create an empty message for the agent's response (for streaming)
+    answer = cl.Message(
+        content="",
+        author=agent.name # Set author to show the correct avatar
+        )
+    await answer.send() # Send the message container to the UI
 
-    # Invoca o agente de forma assíncrona e faz streaming da resposta
-    # Use invoke_stream para obter respostas parciais e atualizar a UI
+    # Invoke the agent asynchronously and stream the response
+    # Use invoke_stream to get partial responses and update the UI
     async for response in agent.invoke_stream(messages=message.content, thread=thread):
 
-        # Se houver conteúdo na resposta parcial, adiciona-o à mensagem na UI
+        # If there is content in the partial response, add it to the message in the UI
         if response.content:
             await answer.stream_token(str(response.content))
 
-        # Atualiza o thread com o histórico mais recente da interação
-        # É crucial atualizar o thread para manter o contexto da conversa
+        # Update the thread with the latest interaction history
+        # It's crucial to update the thread to maintain conversation context
         thread = response.thread
-        cl.user_session.set("thread", thread) # Salva o thread atualizado na sessão
+        cl.user_session.set("thread", thread) # Save the updated thread in the session
+
+    # await answer.update() # Usually not needed when using stream_token

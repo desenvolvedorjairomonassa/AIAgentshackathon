@@ -1,8 +1,11 @@
 # AI Agents hackathon
 AI Agents Hackathon at Microsoft AI Skills Fest
 
+# version 0 - agent study planning with tool to save the plan in json
+agent_planning.py
 
 
+# using chainlit for web interface
 for run 
 ```
 python -m chainlit run .\app.py -w

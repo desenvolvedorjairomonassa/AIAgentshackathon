@@ -10,7 +10,8 @@ for run
 ```
 python -m chainlit run .\app.py -w
 ```
-
+Interface with Chainlit
+<img src="Captura de tela 2025-04-26 213504.png"> </img>
 I created a variety of versions according to the evaluation from the agent
 
 # version 1 - multiagent using chainly, and semantic kernel 

@@ -20,3 +20,6 @@ for run
 ```
 python -m chainlit run .\app_v1.py -w
 ```
+
+# version 2- using crewIA from scratch
+crewia_tutor.ipynb
